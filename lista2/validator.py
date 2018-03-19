@@ -28,14 +28,17 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
-import numpy as np
 import os
 import signal
 import subprocess
 import sys
 import threading
-import yaml
 import time
+
+import numpy as np
+
+import yaml
+
 
 VERBOSE = False
 
