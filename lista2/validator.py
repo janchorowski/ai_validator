@@ -39,6 +39,7 @@ import numpy as np
 
 import yaml
 
+
 VERBOSE = False
 
 # Tests embedded into the validator.
@@ -966,7 +967,8 @@ zad5:
         #####        SS      #
         #S                   #
         ######################
-        Length= 28
+      out: 28
+    - inp: |
         ######################
         #        # SS##    G #
         #        # SS##      #
