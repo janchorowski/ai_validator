@@ -35,8 +35,6 @@ import sys
 import threading
 import time
 
-from adodbapi.process_connect_string import process
-
 import numpy as np
 
 import yaml
