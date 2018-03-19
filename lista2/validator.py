@@ -36,7 +36,6 @@ import sys
 import threading
 import yaml
 import time
-from adodbapi.process_connect_string import process
 
 VERBOSE = False
 
@@ -965,7 +964,8 @@ zad5:
         #####        SS      #
         #S                   #
         ######################
-        Length= 28
+      out: 28
+    - inp: |
         ######################
         #        # SS##    G #
         #        # SS##      #
