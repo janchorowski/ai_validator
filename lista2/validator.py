@@ -21,6 +21,9 @@ Prosta sprawdzarka. Przykłady użycia:
 6. Wymuszenie użycia STDIN/STDOUT do komunikacji:
   `python validator.py --stdio zad1 python rozwiazanie.py`
 
+7. Zniesienie limitów czasowych:
+  `python validator.py --no_timeout zad1 python rozwiazanie.py`
+
 '''
 
 from __future__ import absolute_import
