@@ -1523,6 +1523,9 @@ def get_argparser():
         '--show_example', default=False, action='store_true',
         help='Print a sample input/output pair.')
     parser.add_argument(
+        '--no_timeout', default=False, action='store_true',
+        help='Set no timeout')
+    parser.add_argument(
         '--verbose', default=False, action='store_true',
         help='Print more information about solutions.')
     parser.add_argument(
@@ -1591,6 +1594,8 @@ if __name__ == '__main__':
     failed_cases = []
     ok_cases = []
     for case_num, case_def in problem_cases:
+        if args.no_timeout:
+            case_def['timeout'] = 1000000
         print('Running case %d... ' % (case_num,), end='')
         try:
             if args.stdio:
@@ -1621,6 +1626,8 @@ if __name__ == '__main__':
         misc_opts = ''
         if args.verbose:
             misc_opts = ' --verbose'
+        if args.no_timeout:
+            misc_opts += ' --no_timeout'
         if args.testset:
             misc_opts = '%s --testset %s' % (
                 misc_opts, shellquote(args.testset),)
