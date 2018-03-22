@@ -21,6 +21,10 @@ Prosta sprawdzarka. Przykłady użycia:
 6. Wymuszenie użycia STDIN/STDOUT do komunikacji:
   `python validator.py --stdio zad1 python rozwiazanie.py`
 
+7. Ustawienie mnożnika dla limitów czasowych:
+  `python validator.py --timeout-multiplier 2.5 zad1 python rozwiazanie.py`
+
+
 '''
 
 from __future__ import absolute_import
@@ -1423,9 +1427,10 @@ else:
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
 
 
-def run_and_score_case(program, defaults, case_def, validator):
+def run_and_score_case(program, defaults, case_def, validator, timeout_multiplier):
     opts = dict(defaults)
     opts.update(case_def)
+    opts['timeout'] *= timeout_multiplier
     process_out, elapsed_time = run_case(program, **opts)
     if VERBOSE:
         print("Got output:")
@@ -1523,6 +1528,9 @@ def get_argparser():
         '--show_example', default=False, action='store_true',
         help='Print a sample input/output pair.')
     parser.add_argument(
+        '--timeout-multiplier', '-tm',
+        help='Multiply timeout by provided amount, e.g. 2.13')
+    parser.add_argument(
         '--verbose', default=False, action='store_true',
         help='Print more information about solutions.')
     parser.add_argument(
@@ -1593,11 +1601,12 @@ if __name__ == '__main__':
     for case_num, case_def in problem_cases:
         print('Running case %d... ' % (case_num,), end='')
         try:
+            timeout_multiplier = float(args.timeout_multiplier) if float(args.timeout_multiplier) > 1 else 1
             if args.stdio:
                 case_def['input_file'] = '<stdin>'
                 case_def['output_file'] = '<stdout>'
             case_meas = run_and_score_case(
-                program, problem_def['defaults'], case_def, problem_validator)
+                program, problem_def['defaults'], case_def, problem_validator, timeout_multiplier)
             ok_cases.append((case_num, case_meas))
             print('OK!')
         except ValidatorException as e:
@@ -1621,9 +1630,12 @@ if __name__ == '__main__':
         misc_opts = ''
         if args.verbose:
             misc_opts = ' --verbose'
+        if args.timeout_multiplier:
+            misc_opts += ' --timeout-multiplier ' + args.timeout_multiplier
         if args.testset:
             misc_opts = '%s --testset %s' % (
                 misc_opts, shellquote(args.testset),)
         cases_opt = '--cases ' + ','.join([str(fc) for fc in failed_cases])
         print('python validator.py%s %s %s %s' %
               (misc_opts, cases_opt, args.problem, program))
+
