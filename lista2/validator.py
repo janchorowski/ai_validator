@@ -1528,7 +1528,7 @@ def get_argparser():
         '--show_example', default=False, action='store_true',
         help='Print a sample input/output pair.')
     parser.add_argument(
-        '--timeout-multiplier',
+        '--timeout-multiplier', '-tm',
         help='Multiply timeout by provided amount, e.g. 2.13')
     parser.add_argument(
         '--verbose', default=False, action='store_true',
