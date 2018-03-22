@@ -1601,7 +1601,7 @@ if __name__ == '__main__':
     for case_num, case_def in problem_cases:
         print('Running case %d... ' % (case_num,), end='')
         try:
-            timeout_multiplier = float(args.timeout_multiplier) if float(args.timeout_multiplier) > 1 else 1
+            timeout_multiplier = float(args.timeout_multiplier) if args.timeout_multiplier and float(args.timeout_multiplier) > 1 else 1
             if args.stdio:
                 case_def['input_file'] = '<stdin>'
                 case_def['output_file'] = '<stdout>'
