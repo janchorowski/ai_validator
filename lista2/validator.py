@@ -38,11 +38,12 @@ import subprocess
 import sys
 import threading
 import time
+import math
+import timeit
 
 import numpy as np
 
 import yaml
-
 
 VERBOSE = False
 
@@ -1573,7 +1574,42 @@ def get_cases(problem_def, cases):
                 yield case + 1, problem_cases[case]
 
 
+def simple_benchmark():
+    product = 1.0
+    for counter in range(1, 1000, 1):
+        for dex in list(range(1, 360, 1)):
+            angle = math.radians(dex)
+            product *= math.sin(angle)**2 + math.cos(angle)**2
+
+    sys.stdout.write('.')
+    sys.stdout.flush()
+    return product
+
+
+def start_benchmark():
+        print('Executing CPU benchmark. It may take some time ...')
+        print('0%', '.'*96, '100%')
+        sys.stdout.write('|')
+        sys.stdout.flush()
+
+        result = timeit.repeat('validator.simple_benchmark()', setup='import validator', number=10, repeat=10)
+        result = list(sorted(result))
+        result = sum(result[:3])/3.0
+        return (result - 1.0) / 1.5 + 1.0  # some tweaks
+
+
 if __name__ == '__main__':
+    benchmark_file = '.benchmark_result'
+    benchmark_result = 1.0
+    if not os.path.isfile(benchmark_file):
+        benchmark_result = start_benchmark()
+        print('|\nResult = ', benchmark_result)
+        with open(benchmark_file, 'w') as outFile:
+            outFile.write(str(benchmark_result))
+    else:
+        with open(benchmark_file) as inputFile:
+            benchmark_result = float(inputFile.readline())
+
     parser = get_argparser()
     args = parser.parse_args()
     VERBOSE = args.verbose
@@ -1606,7 +1642,7 @@ if __name__ == '__main__':
                 case_def['input_file'] = '<stdin>'
                 case_def['output_file'] = '<stdout>'
             case_meas = run_and_score_case(
-                program, problem_def['defaults'], case_def, problem_validator, timeout_multiplier)
+                program, problem_def['defaults'], case_def, problem_validator, timeout_multiplier*benchmark_result)
             ok_cases.append((case_num, case_meas))
             print('OK!')
         except ValidatorException as e:
