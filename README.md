@@ -21,3 +21,9 @@ Przykłady użycia:
 
 6. Wymuszenie użycia STDIN/STDOUT do komunikacji:
   `python validator.py --stdio zad1 python rozwiazanie.py`
+
+7. Ustawienie mnożnika dla limitów czasowych:
+  `python validator.py --timeout-multiplier 2.5 zad1 python rozwiazanie.py`
+  
+## CPU benchmark
+Przy pierwszym uruchomieniu walidatora, uruchamiany jest benchmark. Jego wynik jest przechowywany w pliku `.benchmark_result`. Przy kolejnych uruchomieniach, prograrm korzysta z wyników zapisanych w pliku.
