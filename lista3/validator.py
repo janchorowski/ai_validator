@@ -939,7 +939,7 @@ def prolog_validator(case, process_out, line_compare_fun=compare):
         prolog_file.write(process_out)
         
     
-    os.system('swipl -c solution.pl') 
+    os.system('swipl -q -c solution.pl > prolog_result.txt') 
     
     with open('prolog_result.txt', 'r') as prolog_result:
         process_out = prolog_result.read()
