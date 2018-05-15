@@ -19,17 +19,19 @@ import threading
 import time
 import yaml
 
-VERBOSE = False
+VERBOSE = 0
 
 # Tests embedded into the validator.
 CONFIG_YAML = u'''
 reversi:
-  ready_timeout: 1 # second
-  move_timeout: 1 # second
+  ready_timeout: 5 # seconds
+  move_timeout: 5  # seconds
+  game_timeout: 60 # seconds
 '''
 
 CONFIG = yaml.load(CONFIG_YAML)
 AI_SU = "/pio/scratch/2/ai_solutions/ai_su"
+
 
 #
 # Reversi
@@ -175,11 +177,12 @@ def kill_proc(process):
 
 
 class Player(object):
-    def __init__(self, command):
+    def __init__(self, command, name=""):
+        self.name = name
         self.in_queue = queue.Queue()
         self.out_queue = queue.Queue()
         self.process = subprocess.Popen(
-            command, bufsize=0, shell=False,
+            command, bufsize=1, shell=False,
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             preexec_fn=os.setpgrp)
         self.threads = [
@@ -189,10 +192,18 @@ class Player(object):
             t.setDaemon(True)
             t.start()
 
+        self.total_time = 0
+        self.start_time = None
+
     def _reader(self):
         proc = self.process
         while proc.poll() is None:
             prompt = proc.stdout.readline()
+            if VERBOSE > 1:
+                print ("%s -> S: `%s`" % (self.name, prompt.rstrip('\n')))
+            if self.start_time is not None:
+                self.total_time += time.time() - self.start_time
+                self.start_time = None
             self.in_queue.put(prompt)
 
     def _writer(self):
@@ -204,6 +215,8 @@ class Player(object):
                 stdin.write(prompt)
                 stdin.write('\n')
                 stdin.flush()
+                if VERBOSE > 1:
+                    print ("S -> %s: `%s`" % (self.name, prompt))
             except (queue.Empty, IOError):
                 pass
 
@@ -217,7 +230,10 @@ class Player(object):
         else:
             raise WrongMove("Expected " + prompt + " got " + ret)
 
-    def put(self, item, block=True, timeout=None):
+    def put(self, item, block=True, timeout=None, measure_time=False):
+        if measure_time:
+            assert self.start_time is None
+            self.start_time = time.time()
         return self.out_queue.put(item, block, timeout)
 
     def kill(self):
@@ -231,7 +247,7 @@ class WrongMove(Exception):
 
 
 def play(game_class, num_games, p0cmd, p1cmd,
-         ready_timeout=10, move_timeout=10):
+         ready_timeout=10, move_timeout=10, game_timeout=60):
     """Play a game between player p0 and p1.
     """
     p = {}
@@ -240,11 +256,12 @@ def play(game_class, num_games, p0cmd, p1cmd,
         if not p or kill:
             for player in p.values():
                 player.kill()
-            p[0] = Player(p0cmd)
-            p[1] = Player(p1cmd)
+            p[0] = Player(p0cmd, name='P0')
+            p[1] = Player(p1cmd, name='P1')
         else:
             for player in p.values():
                 player.put('ONEMORE')
+                player.total_time = 0.0
 
     reset()
 
@@ -266,12 +283,17 @@ def play(game_class, num_games, p0cmd, p1cmd,
             remaining_time = ready_timeout - (time.time() - start_time)
             _ = p[cur_player].expect('RDY', timeout=min(0.1, remaining_time))
 
-            p[cur_player].put('UGO %f' % move_timeout)
+            player_remaining_time = max(
+                0, game_timeout - p[cur_player].total_time)
+            player_move_time = min(move_timeout, player_remaining_time)
+            p[cur_player].put(
+                'UGO %f %f' % (player_move_time, player_remaining_time),
+                measure_time=True)
             if VERBOSE:
                 game.draw()
             while True:
-                timeout_winner = oponent
-                move = p[cur_player].expect('IDO', timeout=move_timeout)
+                move = p[cur_player].expect(
+                    'IDO', timeout=player_move_time)
                 if start_player == 0:
                     result = game.update(cur_player, move)
                     rmult = 1.0
@@ -285,7 +307,16 @@ def play(game_class, num_games, p0cmd, p1cmd,
                     return result * rmult
                 oponent = cur_player
                 cur_player = 1 - cur_player
-                p[cur_player].put('HEDID %f %s' % (move_timeout, move))
+                timeout_winner = oponent
+                player_remaining_time = (
+                    game_timeout - p[cur_player].total_time)
+                if player_remaining_time <= 0:
+                    raise queue.Empty
+                player_move_time = min(move_timeout, player_remaining_time)
+                p[cur_player].put(
+                    'HEDID %f %f %s' % (
+                        player_move_time, player_remaining_time, move),
+                    measure_time=True)
         except WrongMove:
             reset()
             return timeout_result[timeout_winner]
@@ -305,7 +336,7 @@ def play(game_class, num_games, p0cmd, p1cmd,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--verbose", action='store_true')
+    parser.add_argument("--verbose", default=0, type=int)
     parser.add_argument("--num_games", default=10, type=int)
     parser.add_argument("game")
     parser.add_argument("p0")
