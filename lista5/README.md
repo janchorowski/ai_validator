@@ -1,8 +1,8 @@
 # Sprawdzarka turniejowa
 
 ## Uruchomienie
-`ai_dueller.py [--verbose 0|1|2] [--num_games 10] GRA FOLDER0 FOLDER1`
-Uruchomi `num_games` rozgrywek między graczem w folderze `FOLDER0` a graczem w folderze `FOLDER1`. Opcja `verbose` wyświetli prebeig gier.
+`ai_dueller.py [--local_ai_su] [--verbose 0|1|2] [--num_games 10] GRA FOLDER0 FOLDER1`
+Uruchomi `num_games` rozgrywek między graczem w folderze `FOLDER0` a graczem w folderze `FOLDER1`. Opcja `verbose` wyświetli prebeig gier. Użycie opcji `--local_ai_su` umożliwi uruchamianie na własnych komputerach (wykorzystany będzie skrypt `ai_su.sh`).
 
 W katalogu `reversi_random` zaimplementowano przykładowego gracza w reversi.
 
@@ -64,4 +64,16 @@ Ruch zapisujemy jako parę liczb całkowitych przedzielonych spacją. Ruch pasuj
 Grę rozpoczyna gracz `o`. 
 
 ### Dżungla
-TODO
+Ruch zapisujemy jako czwórkę liczb całkowitych przedzielonych spacją: `XS YS XD YD` gdzie `XS, YS` to współrzędne pola startowego, a `XD, YD` to współrzędne pola docelowego (współrzędne `X` zawierają się w `[0, 6]`, a `Y` w `[0, 8]`). Ruch pasujący to `-1 -1 -1 -1`. Początkowe ustawienie planszy to:
+```
+L.....T
+.D...C.
+R.J.W.E
+.......
+.......
+.......
+e.w.j.r
+.c...d.
+t.....l
+```
+Partię rozpoczyna zawsze gracz grający małymi literami.
