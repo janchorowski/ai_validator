@@ -299,9 +299,9 @@ class Jungle:
                             continue
                         if p == Jungle.tiger or p == Jungle.lion:
                             if dx != 0:
-                                dx *= 2
+                                dx *= 3
                             if dy != 0:
-                                dy *= 3
+                                dy *= 4
                             if self.rat_is_blocking(player, pos, dx, dy):
                                 continue
                             pos2 = nx, ny = x+dx, y+dy
