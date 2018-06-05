@@ -11,7 +11,10 @@ from __future__ import unicode_literals
 import argparse
 import numpy as np
 import os
-import queue
+try:
+    import Queue as queue
+except ImportError:
+    import queue
 import random
 import signal
 import subprocess
