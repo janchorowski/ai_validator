@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"github.com/containerd/cgroups"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 const (
@@ -82,9 +84,10 @@ func maybeSuid(sol_info os.FileInfo) {
 	}
 
 	runtime.LockOSThread()
-	if runtime.NumGoroutine() > 1 {
-		panic("Too many goroutines, unsafe to setuid!")
-	}
+	//if runtime.NumGoroutine() > 1 {
+	//	fmt.Println("Num of Gorutnes " + strconv.Itoa(runtime.NumGoroutine()))
+	//	panic("Too many goroutines, unsafe to setuid!")
+	//}
 	_, _, errNo := syscall.RawSyscall(
 		syscall.SYS_SETGID, uintptr(dest_gid), 0, 0)
 	if errNo != 0 {
@@ -135,9 +138,38 @@ func main() {
 			solution_dir, restricted_path))
 	checkSolutionPermissions(solution_dir, dir_info)
 
-	// printIds()
+	// ------------------------------
+	printIds()
+	pid := syscall.Getpid()
+
+	shares := uint64(100)
+	memory_limit := int64(3*1024*1024)
+	//swap := int64(1*1024*1024)
+	cpus := "0"
+	mems := "0"
+
+	control, err := cgroups.New(cgroups.V1, cgroups.StaticPath("/ailimitgroup"), &specs.LinuxResources{
+		CPU: &specs.LinuxCPU{
+			Shares: &shares,  // I'm not sure that this is needed
+			Cpus: cpus,
+			Mems: mems,
+		},
+		Memory: &specs.LinuxMemory{
+			Limit: &memory_limit,
+			//Swap: &swap,  // This causes: panic: open /sys/fs/cgroup/memory/ailimitgroup/memory.memsw.limit_in_bytes: permission denied
+		},
+	})
+	panicNonNull(err)
+
+	fmt.Println("Pid " + strconv.Itoa(pid))
+	err1 := control.Add(cgroups.Process{Pid: pid})
+	panicNonNull(err1)
+
+	// ------------------------------
+
+	printIds()
 	maybeSuid(dir_info)
-	// printIds()
+	printIds()
 
 	solution_entrypoint := path.Join(solution_dir, "run.sh")
 	_, f_err := os.Stat(solution_entrypoint)
@@ -152,6 +184,10 @@ func main() {
 	}
 
 	os.Chdir(solution_dir)
-	err := syscall.Exec(binary, argv, env)
-	panicNonNull(err)
+
+	fmt.Println("Exec the process")
+	exec_err := syscall.Exec(binary, argv, env)
+	panicNonNull(exec_err)
+
+	defer control.Delete()
 }
