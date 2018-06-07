@@ -2,26 +2,26 @@
 
 ## Uruchomienie
 `ai_dueller.py [--local_ai_su] [--verbose 0|1|2] [--num_games 10] GRA FOLDER0 FOLDER1`
-Uruchomi `num_games` rozgrywek między graczem w folderze `FOLDER0` a graczem w folderze `FOLDER1`. Opcja `verbose` wyświetli przebieg gier. Użycie opcji `--local_ai_su` umożliwi uruchamianie na własnych komputerach (wykorzystany będzie skrypt `ai_su.sh`).
+Uruchomi `num_games` rozgrywek między graczem w folderze `FOLDER0` a graczem w folderze `FOLDER1`. Opcja `verbose` wyświetli prebeig gier. Użycie opcji `--local_ai_su` umożliwi uruchamianie na własnych komputerach (wykorzystany będzie skrypt `ai_su.sh`).
 
 W katalogu `reversi_random` zaimplementowano przykładowego gracza w reversi.
 
 Protokół komunikacji ze sprawdzaczką:
 1. Program czyta ze standardowego wejścia i pisze na standardowe wyjście.
 2. Sprawdzaczka może przysłać następujące komunikaty:
-- `UGO %f %f` -- gracz otrzymujący ten komunikat program ma rozpocząć grę. Parametry podają czas na wykonanie ruchu i pozostały czas na grę.
+- `UGO %f %f` -- gracz otrzymujący ten komunikat program ma rozpocząć grę. Parametery podają czas na wykonanie ruchu i pozostały czas na grę.
 - `HEDID %f %f ...` -- gracz otrzymujący ten komunikat ma zareagować na ruch przeciwnika. Pierwsze dwie liczby oznaczają czas na ruch i pozostały czas na grę, dalsza część linii zależy od gry.
 - `ONEMORE` -- gracz ma się zresetować, zaczyna się nowa gra
-- `BYE` -- gracz ma się wyłączyć
+- `BYE` -- gracz ma się wylączyć
 3. Gracze wysyłają sprawdzaczce następujące komunikaty:
-- `RDY` -- określenie gotowości, wysyłane po starcie programu i po prośbie o reset.
+- `RDY` -- okreslenie gotowości, wysyłane po starcie programu i po prośbie o reset.
 - `IDO ...` -- odpowiedź na `UGO` i `HEDID`: ruch gracza, w formacie zależnym od gry.
 4. Uwagi:
 - Gracz wie, że zaczyna rozgrywkę jeśli po starcie dostaje komunikat `UGO`. Jeśli po starcie dostaje komunikat `HEDID...` oznacza to że jest drugim graczem.
 - Czas inicjalizacji (i czas po resecie) jest limitowany z limitem 5s.
 - Limity czasów dla ruchów są podawane przy każdym ruchu - liczy się czas mierzony przez sprawdzaczkę (a więc z narzutem na komunikację).
-- Podczas turnieju gracze będą mieli *na wyłączność* jeden rdzeń procesora (2 hyper-thready) i 6GB RAM. Limity zostaną zaimplementowane w sprawdzaczce w niedalekiej przyszłości (przysłanie działającego PR do `ai_su.go` używającego cgroups do ustalania limitów jest warte do 5 puntów pracownianych).
-- Gracz może wypisywać komunikaty do debugowania na `stderr`, kanał ten jest ignorowany przez sprawdzaczkę.
+- Podczas tyrnieju gracze będą mieli *na wyłączność* jeden rdzeń procesra (2 hyper-thready) i 6GB RAM. Limity zostaną zaimplementowane w sprawdzaczce w niedalekiej przyszłości (przysłanie działającego PR do `ai_su.go` uzywającego cgroups do ustalania limitów jest warte do 5 puntów pracownianych).
+- Gracz może wypisywać komunikaty do debbugowania na `stderr`, kanał ten jest ignorowany przez sprawdzaczkę.
 
 Przykładowa komunikacja:
 ```
@@ -41,7 +41,7 @@ P0 -> S: `IDO 2 3`
 ```
 
 ## Zgłaszanie programów
-Programy do oceny należy umieścić w katalogu `/pio/scratch/2/ai_solutions/[reversi|jungle]_iXXXXXX/` gdzie XXXXXX jest numerem indeksu. Folder ma mieć prawa odczytu tylko dla jego właściciela `700`. W folderze musi znajdować się przynajmniej plik `run.sh` który zostanie uruchomiony bashem. Plik ten ma ustawić środowisko dla gracza i uruchomić program gracza.
+Programy do oceny należy umieścić w katalogu `/pio/scratch/2/ai_solutions/[reversi|jungle]_iXXXXXX/` gdzie XXXXXX jest numerem indeksu. Folder ma mieć prawa odczytu tylko dla jego właściciela `700`. W folderze musi znajdować się przynajmniej plik `run.sh` który zostanie uruchmiony bashem. Plik ten ma ustawić środowisko dla gracza i uruchomić program gracza.
 
 Sprawdzanie poprawności zgłoszeń można wykonywać na komputerach lab110-01..lab110-10 i lab137-01..lab137-18 uruchamiając (w katalogu `/pio/scratch/2/ai_solutions/`) komendę `./ai_duller.py reversi reversi_random reversi_iXXX`. Gracze mogą być zaimplementowani w dowolnej technologii, pod warunkiem że będą działać na komputerach lab110-XX.
 
@@ -77,3 +77,9 @@ e.w.j.r
 t.....l
 ```
 Partię rozpoczyna zawsze gracz grający małymi literami.
+
+# Sprawdzaczka obrazków logicznych
+
+Zgłoszenia umieszczamy w folderze `obrazki_XXXX` gdzie `XXXX` jest numerem indeksu. Podobnie jak dla dżungli i reversi, folder musi zawierać plik `run.sh` który uruchamia wasze rozwiązanie.
+
+Sprawdzaczka komunikuje się z programem przez standardowe wejście i wyjście, obsługuje ponadto wszystkie obcje sprawdzaczki ćwiczeniowej.
