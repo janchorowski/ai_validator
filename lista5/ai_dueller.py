@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/pio/os/anaconda/bin/python
 # -*- coding: UTF-8 -*-
 '''
 Prosta sprawdzarka turniejowa.
@@ -11,6 +11,7 @@ from __future__ import unicode_literals
 import argparse
 import numpy as np
 import os
+import sys
 try:
     import Queue as queue
 except ImportError:
@@ -539,6 +540,7 @@ if __name__ == '__main__':
     parser.add_argument("--local_ai_su", default=False, action='store_true')
     parser.add_argument("--verbose", default=0, type=int)
     parser.add_argument("--num_games", default=10, type=int)
+    parser.add_argument("--cgroups", default='')
     parser.add_argument("game")
     parser.add_argument("p0")
     parser.add_argument("p1")
@@ -554,9 +556,22 @@ if __name__ == '__main__':
         common_args = [LOCAL_AI_SU]
     else:
         common_args = [AI_SU]
+    if not args.cgroups:
+        p0_args = common_args + [args.p0]
+        p1_args = common_args + [args.p1]
+    else:
+        cg0, cg1 = args.cgroups.split(',')
+        for cg in [cg0, cg1]:
+            if open(os.path.join('/sys/fs/cgroup/cpuset', cg0, 'tasks')
+                    ).read().strip() != '':
+                sys.stderr.write(
+                    'There are tasks in the selected cgroups!\n')
+                sys.exit(1)
+        p0_args = common_args + ['--cgroup', cg0, args.p0]
+        p1_args = common_args + ['--cgroup', cg1, args.p1]
     result = play(game, args.num_games,
-                  common_args + [args.p0],
-                  common_args + [args.p1], **CONFIG[args.game])
+                  p0_args, p1_args,
+                  **CONFIG[args.game])
     result = np.array(result)
     print("P0 won-tied-lost %d-%d-%d times." %
           ((result < 0).sum(), (result == 0).sum(), (result > 0).sum()))

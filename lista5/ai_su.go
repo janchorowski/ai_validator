@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -119,7 +120,7 @@ func checkSolutionPermissions(solution_dir string, sol_info os.FileInfo) {
 }
 
 func main() {
-	var _ = flag.Int64("memlimit", 0, "Limit RAM (in MB).")
+	var cgroup = flag.String("cgroup", "", "Move the process to the given cgroup.")
 	flag.Parse()
 	usage(len(flag.Args()) != 1, "")
 
@@ -134,6 +135,16 @@ func main() {
 		fmt.Sprintf("The solution folder %s must lie below %s.",
 			solution_dir, restricted_path))
 	checkSolutionPermissions(solution_dir, dir_info)
+
+	if *cgroup != "" {
+		pid := syscall.Getpid()
+		for _, cg := range []string{"cpuset", "memory"} {
+			err := ioutil.WriteFile(
+				filepath.Join("/sys/fs/cgroup", cg, *cgroup, "tasks"),
+				[]byte(fmt.Sprint(pid)), 644)
+			panicNonNull(err)
+		}
+	}
 
 	// printIds()
 	maybeSuid(dir_info)
