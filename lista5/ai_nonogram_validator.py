@@ -47,6 +47,9 @@ DEFAULT_TESTSET_YAML = u'''
 zad1: {}
 '''
 DEFAULT_TESTSET = yaml.load(DEFAULT_TESTSET_YAML)
+AI_SU = "/pio/scratch/2/ai_solutions/ai_su"
+SKILL = "/pio/scratch/2/ai_solutions/skill"
+
 
 VERBOSE = False
 
@@ -85,6 +88,39 @@ def perlines_validator(case, process_out, line_compare_fun=compare):
     for lnum, (proc_line, ref_line) in enumerate(
             zip(process_lines, ref_lines)):
         line_compare_fun(proc_line, ref_line, "Line %d contents" % (lnum + 1,))
+
+
+def count_blocks(r):
+    b = 0
+    ret = []
+    for e in r:
+        if e == 0:
+            if b > 0:
+                ret.append(b)
+                b = 0
+        else:
+            b += 1
+    if b > 0:
+        ret.append(b)
+    return ret
+
+
+def nonogram_validator(case, process_out):
+    case_def = [[int(i) for i in l.split()]
+                for l in case['inp'].split('\n') if l.strip()]
+    img = [[0 if c=='.' else 1 for c in l.strip()]
+           for l in process_out.split('\n') if l.strip()]
+    img = np.array(img)
+
+    if img.shape != tuple(case_def[0]):
+        fail("Wrong output shape.")
+    ret_def = (
+        [[img.shape[0], img.shape[1]]] +
+        [count_blocks(r) for r in img] +
+        [count_blocks(r) for r in img.T])
+    if case_def != ret_def:
+        fail("Solution does not match spec.")
+
 
 # Comparison function utils
 def ensure_unicode(obj):
@@ -131,10 +167,38 @@ if os.name == 'nt':
             print('Killing subprocess.')
             subprocess.call(['taskkill', '/F', '/T', '/PID', str(process.pid)])
 else:
+    def killcg(cgroup):
+        with open(os.path.join('/sys/fs/cgroup/cpuset',
+                               cgroup, 'cgroup.procs')) as f:
+            for line in f:
+                subprocess.call([SKILL, '-TERM', '--', line.strip()])
+                subprocess.call([SKILL, '-KILL', '--', line.strip()])
+
     def kill_proc(process):
         if process.poll() is None:
             print('Killing subprocess.')
-            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+            with open(os.path.join('/proc', str(process.pid), 'cgroup')) as f:
+                for line in f:
+                    if 'cpuset' in line:
+                        cgroup = line.strip().split('/')[-1]
+                        if cgroup.startswith('ai'):
+                            killcg(cgroup)
+                            if process.poll() is not None:
+                                return
+            try:
+                pgid = os.getpgid(process.pid)
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except:
+                    subprocess.call([SKILL, '-TERM', '--', str(-pgid)])
+                    subprocess.call([SKILL, '-KILL', '--', str(-pgid)])
+            except:
+                pid = process.pid
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except:
+                    subprocess.call([SKILL, '-TERM', '--', str(pid)])
+                    subprocess.call([SKILL, '-KILL', '--', str(pid)])
 
 
 def run_and_score_case(program, defaults, case_def, validator, timeout_multiplier):
@@ -247,17 +311,28 @@ def get_argparser():
         '--stdio', default=False, action='store_true',
         help='Use stdin/stdout for communication.')
     parser.add_argument(
-        '--problem', default='zad1', 
+        '--problem', default='zad1',
         help='Problem form this homework, one of: %s.' %
         (', '.join(sorted(DEFAULT_TESTSET.keys())),))
     parser.add_argument(
-        'program_dir', 
+        '--cgroup', default='',
+        help='cgroup for ai_su')
+    parser.add_argument("--results", default='')
+    parser.add_argument(
+        'program_dir',
         help='Program dir to execute, e.g. obrazki_jch.')
     return parser
 
 
-def get_program(program_dir):
-    return '/pio/scratch/2/ai_solutions/ai_su ' + program_dir
+def get_program(program_dir, cgroup):
+    if cgroup:
+        if open(os.path.join('/sys/fs/cgroup/cpuset', cgroup, 'tasks')
+                    ).read().strip() != '':
+                sys.stderr.write(
+                    'There are tasks in the selected cgroups!\n')
+                sys.exit(1)
+        cgroup = '--cgroup %s' % (cgroup,)
+    return 'exec %s %s %s' % (AI_SU, cgroup, program_dir)
     #return ' '.join([shellquote(a) for a in args])
 
 
@@ -298,7 +373,7 @@ if __name__ == '__main__':
     problem_def = testset[args.problem]
     problem_validator = eval(problem_def['validator'])
     problem_cases = get_cases(problem_def, args.cases)
-    program = get_program(args.program_dir)
+    program = get_program(args.program_dir, args.cgroup)
 
     if args.show_example:
         show_example(problem_def['defaults'], next(problem_cases)[1])
@@ -306,6 +381,7 @@ if __name__ == '__main__':
 
     failed_cases = []
     ok_cases = []
+    t_start = time.time()
     for case_num, case_def in problem_cases:
         print('Running case %d... ' % (case_num,), end='')
         try:
@@ -314,16 +390,18 @@ if __name__ == '__main__':
                 case_def['input_file'] = '<stdin>'
                 case_def['output_file'] = '<stdout>'
             case_meas = run_and_score_case(
-                program, problem_def['defaults'], case_def, problem_validator, timeout_multiplier)
+                program, problem_def['defaults'], case_def,
+                problem_validator, timeout_multiplier)
             ok_cases.append((case_num, case_meas))
             print('OK!')
         except ValidatorException as e:
             failed_cases.append(case_num)
             print('Failed:')
             print(str(e))
-
-    print('\nValidation result: %d/%d cases pass.\n' % (
-        len(ok_cases), len(ok_cases) + len(failed_cases)))
+        sys.stdout.flush()
+    tot_time = time.time() - t_start
+    print('\nValidation result: %d/%d cases pass. Eval time: %f\n' % (
+        len(ok_cases), len(ok_cases) + len(failed_cases), tot_time))
 
     tot_meas = {}
     for nc, meas in ok_cases:
@@ -331,6 +409,12 @@ if __name__ == '__main__':
             tot_meas[k] = tot_meas.get(k, 0) + v
     for k, v in tot_meas.items():
         print("For passing cases total %s: %s" % (k, v))
+
+    if args.results:
+        with open(args.results, 'a') as rf:
+            rf.write('%s, %d, %f, %f\n' %
+                     (os.path.basename(args.program_dir),
+                      len(ok_cases), tot_meas.get('time', -1), tot_time))
 
     if failed_cases:
         print('\nSome test cases have failed. '

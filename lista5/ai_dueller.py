@@ -40,6 +40,7 @@ jungle:
 
 CONFIG = yaml.load(CONFIG_YAML)
 AI_SU = "/pio/scratch/2/ai_solutions/ai_su"
+SKILL = "/pio/scratch/2/ai_solutions/skill"
 LOCAL_AI_SU = os.path.join(
     os.path.abspath(os.path.dirname(__file__)), 'ai_su.sh')
 
@@ -371,10 +372,39 @@ class Jungle:
 #
 
 
+def killcg(cgroup):
+    with open(os.path.join('/sys/fs/cgroup/cpuset',
+                           cgroup, 'cgroup.procs')) as f:
+        for line in f:
+            subprocess.call([SKILL, '-TERM', '--', line.strip()])
+            subprocess.call([SKILL, '-KILL', '--', line.strip()])
+
 def kill_proc(process):
     if process.poll() is None:
         print('Killing subprocess.')
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        with open(os.path.join('/proc', str(process.pid), 'cgroup')) as f:
+            for line in f:
+                if 'cpuset' in line:
+                    cgroup = line.strip().split('/')[-1]
+                    if cgroup.startswith('ai'):
+                        killcg(cgroup)
+                        if process.poll() is not None:
+                            return
+        try:
+            pgid = os.getpgid(process.pid)
+            try:
+                os.killpg(pgid, signal.SIGTERM)
+            except:
+                subprocess.call([SKILL, '-TERM', '--', str(-pgid)])
+                subprocess.call([SKILL, '-KILL', '--', str(-pgid)])
+        except:
+            pid = process.pid
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except:
+                subprocess.call([SKILL, '-TERM', '--', str(pid)])
+                subprocess.call([SKILL, '-KILL', '--', str(pid)])
+
 
 
 class Player(object):
@@ -426,6 +456,8 @@ class Player(object):
 
     def expect(self, prompt, block=True, timeout=None):
         ret = self.get(block, timeout)
+        if not self.in_queue.empty():
+            raise WrongMove("Message out of order: " + self.in_queue.get_nowait())
         if ret.startswith(prompt):
             return ret.lstrip(prompt).strip()
         else:
@@ -454,6 +486,7 @@ def play(game_class, num_games, p0cmd, p1cmd,
     p = {}
 
     def reset(kill=False):
+        kill = True
         if not p or kill:
             for player in p.values():
                 player.kill()
@@ -482,7 +515,7 @@ def play(game_class, num_games, p0cmd, p1cmd,
             _ = p[oponent].expect('RDY', timeout=ready_timeout)
             timeout_winner = oponent
             remaining_time = ready_timeout - (time.time() - start_time)
-            _ = p[cur_player].expect('RDY', timeout=min(0.1, remaining_time))
+            _ = p[cur_player].expect('RDY', timeout=max(0.1, remaining_time))
 
             player_remaining_time = max(
                 0, game_timeout - p[cur_player].total_time)
@@ -518,16 +551,21 @@ def play(game_class, num_games, p0cmd, p1cmd,
                     'HEDID %f %f %s' % (
                         player_move_time, player_remaining_time, move),
                     measure_time=True)
-        except WrongMove:
+        except WrongMove as wme:
             reset()
+            print("Wrong move... ", wme, end='')
             return timeout_result[timeout_winner]
         except queue.Empty:
             # Timeout, kill the players!
             reset(kill=True)
+            print("Timeout... ", end='')
             return timeout_result[timeout_winner]
 
     while len(results) < num_games:
-        results.append(play_game())
+        res = play_game()
+        print("Game ended with %s " % (res,))
+        sys.stdout.flush()
+        results.append(res)
 
     for player in p.values():
         player.put('BYE')
@@ -541,6 +579,7 @@ if __name__ == '__main__':
     parser.add_argument("--verbose", default=0, type=int)
     parser.add_argument("--num_games", default=10, type=int)
     parser.add_argument("--cgroups", default='')
+    parser.add_argument("--results", default='')
     parser.add_argument("game")
     parser.add_argument("p0")
     parser.add_argument("p1")
@@ -573,5 +612,12 @@ if __name__ == '__main__':
                   p0_args, p1_args,
                   **CONFIG[args.game])
     result = np.array(result)
-    print("P0 won-tied-lost %d-%d-%d times." %
-          ((result < 0).sum(), (result == 0).sum(), (result > 0).sum()))
+    win, tied, lost = (
+        (result < 0).sum(), (result == 0).sum(), (result > 0).sum())
+    print("P0 won-tied-lost %d-%d-%d times." % (win, tied, lost))
+    sys.stdout.flush()
+    if args.results:
+        with open(args.results, 'a') as rf:
+            rf.write('%s, %s, %d, %d, %d\n' %
+                     (os.path.basename(args.p0), os.path.basename(args.p1),
+                      win, tied, lost))
