@@ -102,6 +102,11 @@ def count_blocks(r):
             b += 1
     if b > 0:
         ret.append(b)
+    # according to the following clarification, an empty row/column 
+    # should be represented in input as a single zero
+    # https://skos.ii.uni.wroc.pl/mod/forum/discuss.php?d=387
+    if ret == []:
+        ret = [0]
     return ret
 
 
