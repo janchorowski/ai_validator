@@ -13,11 +13,11 @@ def all_different(Qs):
 def get_column(j):
     return [V(i,j) for i in range(9)] 
             
-def get_raw(i):
+def get_row(i):
     return [V(i,j) for j in range(9)] 
                         
 def horizontal():   
-    return [ all_different(get_raw(i)) for i in range(9)]
+    return [ all_different(get_row(i)) for i in range(9)]
 
 def vertical():
     return [all_different(get_column(j)) for j in range(9)]
@@ -52,7 +52,7 @@ def sudoku(assigments):
     print(':- solve(X), write(X), nl.')       
 
 if __name__ == "__main__":
-    raw = 0
+    row = 0
     triples = []
     
     for x in sys.stdin:
@@ -60,8 +60,8 @@ if __name__ == "__main__":
         if len(x) == 9:
             for i in range(9):
                 if x[i] != '.':
-                    triples.append( (raw,i,int(x[i])) ) 
-            raw += 1          
+                    triples.append( (row,i,int(x[i])) ) 
+            row += 1          
     sudoku(triples)
     
 """
