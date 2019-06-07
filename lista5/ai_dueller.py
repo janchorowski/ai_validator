@@ -188,7 +188,7 @@ class Jungle:
         6: 8,
         7: 10
     }
-
+    MAXIMAL_PASSIVE = 30
     DENS_DIST = 0.1
     MX = 7
     MY = 9
@@ -210,6 +210,8 @@ class Jungle:
                     pl, pc = C
                     self.pieces[pl][pc] = (x, y)
         self.curplayer = 0
+        self.peace_counter = 0
+        self.winner = None
 
     def initial_board(self):
         pieces = """
@@ -260,17 +262,31 @@ class Jungle:
             return True
         return False
 
-    def rat_is_blocking(self, player, pos, dx, dy):
+    def pieces_comparison(self):
+        for i in range(7,-1,-1):
+            ps = []
+            for p in [0,1]:
+                if i in self.pieces[p]:
+                    ps.append(p)
+            if len(ps) == 1:
+                return ps[0]
+        return None
+                
+    def rat_is_blocking(self, player_unused, pos, dx, dy):        
         x, y = pos
-        if Jungle.rat not in self.pieces[1-player]:
-            return False
-        rx, ry = self.pieces[1-player][Jungle.rat]
-        if (rx, ry) not in self.ponds:
-            return False
-        if dy != 0:
-            return x == rx
-        if dx != 0:
-            return y == ry and abs(x-rx) <= 2
+        nx = x + dx
+        for player in [0,1]:
+            if Jungle.rat not in self.pieces[1-player]:
+                continue
+            rx, ry = self.pieces[1-player][Jungle.rat]
+            if (rx, ry) not in self.ponds:
+                continue
+            if dy != 0:
+                if x == rx:
+                    return True
+            if dx != 0:
+                if y == ry and abs(x-rx) <= 2 and abs(nx-rx) <= 2:
+                    return True
         return False
 
     def draw(self):
@@ -293,15 +309,15 @@ class Jungle:
         for p, pos in self.pieces[player].items():
             x, y = pos
             for (dx, dy) in Jungle.dirs:
-                pos2 = nx, ny = x+dx, y+dy
+                pos2 = (nx, ny) = (x+dx, y+dy)
                 if 0 <= nx < Jungle.MX and 0 <= ny < Jungle.MY:
                     if Jungle.dens[player] == pos2:
                         continue
                     if pos2 in self.ponds:
                         if p not in (Jungle.rat, Jungle.tiger, Jungle.lion):
                             continue
-                        if self.board[ny][nx] is not None:
-                            continue
+                        #if self.board[ny][nx] is not None:
+                        #    continue  # WHY??
                         if p == Jungle.tiger or p == Jungle.lion:
                             if dx != 0:
                                 dx *= 3
@@ -309,7 +325,7 @@ class Jungle:
                                 dy *= 4
                             if self.rat_is_blocking(player, pos, dx, dy):
                                 continue
-                            pos2 = nx, ny = x+dx, y+dy
+                            pos2 = (nx, ny) = (x+dx, y+dy)
                     if self.board[ny][nx] is not None:
                         pl2, piece2 = self.board[ny][nx]
                         if pl2 == player:
@@ -320,12 +336,22 @@ class Jungle:
         return res
 
     def victory(self, player):
-        oponent = 1-player
+        oponent = 1-player        
         if len(self.pieces[oponent]) == 0:
+            self.winner = player
             return True
 
         x, y = self.dens[oponent]
         if self.board[y][x]:
+            self.winner = player
+            return True
+        
+        if self.peace_counter >= Jungle.MAXIMAL_PASSIVE:
+            r = self.pieces_comparison()
+            if r is None:
+                self.winner = 1 # draw is second player's victory 
+            else:
+                self.winner = r
             return True
         return False
 
@@ -341,6 +367,9 @@ class Jungle:
         if self.board[y2][x2]:  # piece taken!
             pl2, pc2 = self.board[y2][x2]
             del self.pieces[pl2][pc2]
+            self.peace_counter = 0
+        else:
+            self.peace_counter += 1    
 
         self.pieces[pl][pc] = (x2, y2)
         self.board[y2][x2] = (pl, pc)
@@ -361,8 +390,10 @@ class Jungle:
             if move not in possible_moves:
                 raise WrongMove
         self.do_move(move)
+        
         if self.victory(player):
-            return 2 * player - 1
+            assert self.winner is not None
+            return 2 * self.winner - 1
         else:
             return None
 
