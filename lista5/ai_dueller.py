@@ -256,6 +256,8 @@ class Jungle:
             return False  # rat in pond cannot beat any piece on land
         if p1 == Jungle.rat and p2 == Jungle.elephant:
             return True
+        if p1 == Jungle.elephant and p2 == Jungle.rat:
+            return False
         if p1 >= p2:
             return True
         if pos2 in Jungle.traps:
